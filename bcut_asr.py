@@ -49,7 +49,6 @@ def _ms_to_s(ms: int) -> float:
 
 def _try_url_asr(url: str, format: str) -> str | list[dict] | None:
     """尝试直接传 URL 给 Bcut（更快），失败返回 None"""
-    logging.info(f"尝试直传 URL 方案: {url[:80]}...")
     asr = BcutASR(file=url)
     try:
         task_id = asr.create_task()
@@ -75,7 +74,6 @@ def _try_url_asr(url: str, format: str) -> str | list[dict] | None:
 
 def _try_download_asr(url: str, format: str) -> str | list[dict]:
     """下载音频后上传到 Bcut（回退方案）"""
-    logging.info(f"直传失败，回退到下载方案: {url[:80]}...")
     resp = requests.get(
         url,
         headers={
@@ -118,9 +116,14 @@ def _try_download_asr(url: str, format: str) -> str | list[dict]:
 def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
     result = _try_url_asr(url, format)
     if result is not None:
-        logging.info("直传 URL 方案成功")
         return result
-    return _try_download_asr(url, format)
+    try:
+        return _try_download_asr(url, format)
+    except Exception as e:
+        host = urlparse(url).hostname or "unknown"
+        is_mcdn = ".mcdn.bilivideo.cn" in host
+        logging.warning(f"获取音频字幕失败: host={host} mcdn={is_mcdn} url={url} error={e}")
+        raise
 
 
 async def get_audio_subtitle_async(url: str, format: str = "txt") -> str | list[dict]:

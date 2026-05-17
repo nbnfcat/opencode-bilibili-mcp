@@ -83,11 +83,13 @@ async def _get_video_subtitle_async(bvid: str, format: str = "txt"):
         url_res = await v.get_download_url(cid=cid)
         audio_arr = url_res.get("dash", {}).get("audio", [])
         if not audio_arr:
+            logging.warning(f"[{bvid}] 字幕获取失败: 无 AI 字幕且没有可用音频流，可用字幕列表: {[(s.get('lan'), s.get('lang')) for s in json_files]}")
             return "没有找到AI生成的中文字幕"
 
         audio = audio_arr[-1]
-        # 优先选 mcdn URL（Bcut 只能访问 B站内部 CDN）
         all_urls = [audio["baseUrl"]] + audio.get("backupUrl", [])
+
+        # 优先选 mcdn URL（Bcut 只能访问 B站内部 CDN）
         audio_url = ""
         for u in all_urls:
             if ".mcdn.bilivideo.cn" in u:
@@ -96,7 +98,16 @@ async def _get_video_subtitle_async(bvid: str, format: str = "txt"):
         if not audio_url:
             audio_url = audio["baseUrl"]
 
-        return await get_audio_subtitle_async(audio_url, format)
+        try:
+            return await get_audio_subtitle_async(audio_url, format)
+        except Exception:
+            logging.warning(
+                f"[{bvid}] 字幕获取失败: 无 AI 字幕且 ASR 回退失败，"
+                f"可用字幕列表: {[(s.get('lan'), s.get('lang')) for s in json_files]}，"
+                f"音轨数: {len(audio_arr)}，选用音频: {audio_url}",
+                exc_info=True,
+            )
+            raise
 
     subtitle_url = target_subtitle["subtitle_url"]
     if not subtitle_url.startswith(("http://", "https://")):
@@ -106,6 +117,7 @@ async def _get_video_subtitle_async(bvid: str, format: str = "txt"):
         async with session.get(subtitle_url) as response:
             subtitle_content = await response.json()
             if "body" not in subtitle_content:
+                logging.warning(f"[{bvid}] 字幕获取失败: 字幕数据缺少 body 字段")
                 return subtitle_content
 
             if format == "srt":
