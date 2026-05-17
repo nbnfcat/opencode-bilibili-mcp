@@ -109,9 +109,19 @@ async def _get_video_subtitle_async(bvid: str, format: str = "txt"):
                 return subtitle_content
 
             if format == "srt":
+                def _format_ts(seconds: float) -> str:
+                    ms = int(round(seconds * 1000))
+                    h = ms // 3600000
+                    m = ms // 60000 % 60
+                    s = ms // 1000 % 60
+                    milli = ms % 1000
+                    return f"{h:02d}:{m:02d}:{s:02d}.{milli:03d}"
+
                 lines = []
-                for n, item in enumerate(subtitle_content["body"], 1):
-                    lines.append(f"{n}\n{item['from']:.3f} --> {item['to']:.3f}\n{item['content']}\n")
+                for item in subtitle_content["body"]:
+                    start = _format_ts(item["from"])
+                    end = _format_ts(item["to"])
+                    lines.append(f"[{start}_{end}]{item['content']}")
                 return "\n".join(lines)
             elif format == "raw":
                 return subtitle_content["body"]

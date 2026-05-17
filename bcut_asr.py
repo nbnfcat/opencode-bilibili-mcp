@@ -154,14 +154,14 @@ class ASRDataSeg(BaseModel):
     words: list[ASRDataWords]
 
     def to_srt_ts(self) -> str:
-        """转换为srt时间戳"""
+        """转换为带毫秒的字幕时间戳"""
 
         def _conv(ms: int) -> tuple[int, int, int, int]:
             return ms // 3600000, ms // 60000 % 60, ms // 1000 % 60, ms % 1000
 
         s_h, s_m, s_s, s_ms = _conv(self.start_time)
         e_h, e_m, e_s, e_ms = _conv(self.end_time)
-        return f"{s_h:02d}:{s_m:02d}:{s_s:02d},{s_ms:03d} --> {e_h:02d}:{e_m:02d}:{e_s:02d},{e_ms:03d}"
+        return f"{s_h:02d}:{s_m:02d}:{s_s:02d}.{s_ms:03d}_{e_h:02d}:{e_m:02d}:{e_s:02d}.{e_ms:03d}"
 
     def to_lrc_ts(self) -> str:
         """转换为lrc时间戳"""
@@ -191,10 +191,10 @@ class ASRData(BaseModel):
         return "".join(seg.transcript for seg in self.utterances)
 
     def to_srt(self) -> str:
-        """转成 srt 格式字幕"""
+        """转成带时间戳的字幕"""
         return "\n".join(
-            f"{n}\n{seg.to_srt_ts()}\n{seg.transcript}\n"
-            for n, seg in enumerate(self.utterances, 1)
+            f"[{seg.to_srt_ts()}]{seg.transcript}"
+            for seg in self.utterances
         )
 
     def to_lrc(self) -> str:
